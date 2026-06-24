@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>바이브코딩 프로젝트 고도화 대시보드</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-2: #273449;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #6366f1;
+    --accent-hover: #818cf8;
+    --shadow: 0 4px 16px rgba(0,0,0,0.35);
+
+    --stage-none: #64748b;   /* 시작전 - 회색 */
+    --stage-plan: #3b82f6;   /* 기획 - 파랑 */
+    --stage-dev: #f59e0b;    /* 개발중 - 주황 */
+    --stage-test: #a855f7;   /* 테스트 - 보라 */
+    --stage-done: #22c55e;   /* 배포완료 - 초록 */
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", sans-serif;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 24px 20px 64px; }
+
+  /* 헤더 */
+  header.app {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    justify-content: space-between; margin-bottom: 20px;
+  }
+  header.app h1 { font-size: 22px; margin: 0; letter-spacing: -0.3px; }
+  header.app .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .saved-at { color: var(--muted); font-size: 12px; margin-right: 4px; }
+  .mode-badge { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 99px; background: #273449; color: var(--muted); border: 1px solid var(--border); }
+  .mode-badge.editing { background: #14532d; color: #86efac; border-color: #166534; }
+  .banner { max-width: 1280px; margin: 0 auto 14px; padding: 10px 16px; border-radius: 10px; font-size: 13px; }
+  .banner.error { background: #422; color: #fca5a5; border: 1px solid #663; }
+  .banner.info { background: #1e293b; color: var(--muted); border: 1px solid var(--border); }
+  .modal.readonly .foot,
+  .modal.readonly .cl-add,
+  .modal.readonly #addLink,
+  .modal.readonly .cl-row .del-btn,
+  .modal.readonly .link-row button { display: none; }
+  .modal.readonly input:disabled,
+  .modal.readonly select:disabled,
+  .modal.readonly textarea:disabled { opacity: 1; -webkit-text-fill-color: var(--text); color: var(--text); }
+
+  button, .btn {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 14px; font-size: 13px; cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  button:hover, .btn:hover { background: #334155; border-color: #475569; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  button.danger { color: #fca5a5; }
+  button.danger:hover { background: #422; border-color: #663; }
+
+  /* 요약 영역 */
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 22px; }
+  .card-box {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; box-shadow: var(--shadow);
+  }
+  .card-box h3 { margin: 0 0 12px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .big-num { font-size: 34px; font-weight: 700; letter-spacing: -1px; }
+  .big-num small { font-size: 15px; color: var(--muted); font-weight: 500; }
+
+  .stage-counts { display: flex; flex-direction: column; gap: 7px; }
+  .stage-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .stage-row .label { flex: 1; color: var(--text); }
+  .stage-row .cnt { font-weight: 700; }
+
+  .cohort-rows { display: flex; flex-direction: column; gap: 10px; }
+  .cohort-row .top { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+  .cohort-row .top b { color: var(--muted); font-weight: 600; }
+
+  .pbar { background: #0b1220; border-radius: 99px; height: 8px; overflow: hidden; }
+  .pbar > span { display: block; height: 100%; background: var(--accent); border-radius: 99px; transition: width .3s; }
+
+  /* 필터 바 */
+  .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+  .seg { display: inline-flex; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { background: transparent; border: none; border-radius: 0; padding: 7px 13px; color: var(--muted); }
+  .seg button.active { background: var(--accent); color: #fff; }
+  .seg button:hover:not(.active) { background: var(--panel-2); }
+  input[type=text], input[type=number], input[type=url], select, textarea {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 11px; font-size: 13px; font-family: inherit;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  .search { flex: 1; min-width: 180px; }
+
+  /* 카드 그리드 */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .pcard {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 15px; cursor: pointer; box-shadow: var(--shadow);
+    transition: transform .12s, border-color .12s; position: relative;
+  }
+  .pcard:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .pcard .row1 { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: 700; white-space: nowrap; }
+  .badge.cohort { background: #1e293b; border: 1px solid var(--border); color: var(--muted); }
+  .badge.stage { color: #fff; }
+  .pcard h4 { margin: 4px 0 6px; font-size: 15px; line-height: 1.35; }
+  .pcard h4.empty { color: var(--muted); font-style: italic; font-weight: 500; }
+  .pcard .desc { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; min-height: 18px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .pcard .meta { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-bottom: 6px; }
+  .pcard .next { font-size: 12px; color: var(--text); margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--border);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .pcard .next.empty { color: var(--muted); font-style: italic; }
+  .pct { font-weight: 700; color: var(--text); }
+
+  /* 모달 */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 50; overflow-y: auto; }
+  .overlay.open { display: flex; }
+  .overlay.detail { z-index: 60; }
+  .modal textarea { width: 100%; resize: vertical; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 560px; box-shadow: var(--shadow); }
+  .modal .head { display: flex; justify-content: space-between; align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--border); }
+  .modal .head h2 { margin: 0; font-size: 17px; }
+  .modal .body { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+  .modal .foot { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 8px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .field input, .field select, .field textarea { width: 100%; }
+  .field textarea { resize: vertical; min-height: 56px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .range-wrap { display: flex; align-items: center; gap: 10px; }
+  .range-wrap input[type=range] { flex: 1; accent-color: var(--accent); }
+  .range-wrap .val { width: 48px; text-align: right; font-weight: 700; }
+
+  /* 링크 편집 */
+  .links-edit { display: flex; flex-direction: column; gap: 8px; }
+  .link-row { display: flex; gap: 8px; }
+  .link-row input.lbl { width: 120px; flex: none; }
+  .link-row input.url { flex: 1; }
+  .link-row button { flex: none; padding: 6px 10px; }
+  .pcard .links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+  .pcard .links a { font-size: 11px; color: var(--accent-hover); text-decoration: none; background: var(--panel-2); padding: 3px 8px; border-radius: 6px; }
+  .pcard .links a:hover { background: #334155; }
+
+  /* 체크리스트 편집 */
+  .checklist-edit { display: flex; flex-direction: column; gap: 7px; }
+  .cl-row { display: flex; gap: 8px; align-items: center; }
+  .cl-row input[type=checkbox] { width: 17px; height: 17px; accent-color: var(--stage-done); flex: none; cursor: pointer; }
+  .cl-row .cl-text-btn {
+    flex: 1; text-align: left; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 11px; font-size: 13px; color: var(--text); cursor: pointer;
+    display: flex; align-items: center; gap: 8px; overflow: hidden;
+  }
+  .cl-row .cl-text-btn:hover { border-color: var(--accent); }
+  .cl-row .cl-text-btn .t { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cl-row .cl-text-btn.done .t { text-decoration: line-through; color: var(--muted); }
+  .cl-row .cl-text-btn.has-note .t::after { content: " 📝"; }
+  .cl-row .del-btn { flex: none; padding: 6px 10px; }
+  .cl-add { display: flex; gap: 8px; margin-top: 8px; }
+  .cl-add input { flex: 1; }
+  .cl-add button { flex: none; }
+
+  .empty-state { text-align: center; color: var(--muted); padding: 60px 20px; }
+
+  @media (max-width: 520px) {
+    .two { grid-template-columns: 1fr; }
+    header.app h1 { font-size: 19px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <div>
+      <h1>🚀 바이브코딩 프로젝트 고도화 대시보드</h1>
+    </div>
+    <div class="toolbar">
+      <span class="saved-at" id="savedAt"></span>
+      <span class="mode-badge" id="modeBadge">읽기 전용</span>
+      <button id="btnEditMode">🔒 편집 모드</button>
+      <button id="btnRefresh">🔄 새로고침</button>
+      <button id="btnExport">📤 백업</button>
+      <button id="btnImport" title="편집 모드에서 JSON 백업을 DB로 복원">📥 복원</button>
+      <input type="file" id="fileInput" accept="application/json" style="display:none">
+    </div>
+  </header>
+  <div id="banner" class="banner" style="display:none;"></div>
+
+  <!-- 요약 -->
+  <section class="summary">
+    <div class="card-box">
+      <h3>전체 평균 진행률</h3>
+      <div class="big-num" id="avgProgress">0<small>%</small></div>
+      <div class="pbar" style="margin-top:12px;"><span id="avgBar" style="width:0%"></span></div>
+    </div>
+    <div class="card-box">
+      <h3>단계별 현황</h3>
+      <div class="stage-counts" id="stageCounts"></div>
+    </div>
+    <div class="card-box">
+      <h3>그룹별 진행률</h3>
+      <div class="cohort-rows" id="groupRows"></div>
+    </div>
+  </section>
+
+  <!-- 필터 -->
+  <div class="filters">
+    <div class="seg" id="groupFilter"></div>
+    <select id="stageFilter">
+      <option value="all">모든 단계</option>
+    </select>
+    <input type="text" class="search" id="searchInput" placeholder="프로젝트명·설명 검색…">
+    <button class="primary" id="btnAddProject">+ 프로젝트 추가</button>
+  </div>
+
+  <!-- 그리드 -->
+  <div class="grid" id="grid"></div>
+  <div class="empty-state" id="emptyState" style="display:none;">조건에 맞는 프로젝트가 없습니다.</div>
+</div>
+
+<!-- 편집 모달 -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="head">
+      <h2 id="modalTitle">프로젝트 편집</h2>
+      <button id="modalClose" style="padding:4px 10px;">✕</button>
+    </div>
+    <div class="body">
+      <input type="hidden" id="f_id">
+      <div class="two">
+        <div class="field">
+          <label>그룹</label>
+          <input type="text" id="f_group" list="groupSuggest" placeholder="예: 1차수, 신규, 유지보수">
+          <datalist id="groupSuggest"></datalist>
+        </div>
+        <div class="field">
+          <label>담당자</label>
+          <input type="text" id="f_owner" placeholder="담당자명">
+        </div>
+      </div>
+      <div class="field">
+        <label>프로젝트명</label>
+        <input type="text" id="f_name" placeholder="프로젝트 이름">
+      </div>
+      <div class="field">
+        <label>한 줄 설명</label>
+        <input type="text" id="f_desc" placeholder="이 프로젝트는 무엇인가요?">
+      </div>
+      <div class="two">
+        <div class="field">
+          <label>고도화 단계</label>
+          <select id="f_stage"></select>
+        </div>
+        <div class="field">
+          <label>진행률 (체크리스트 기반 자동)</label>
+          <div class="range-wrap">
+            <div class="pbar" style="flex:1;"><span id="f_progress_bar" style="width:0%"></span></div>
+            <span class="val" id="f_progress_val">0%</span>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label>체크리스트 (체크할수록 진행률 상승)</label>
+        <div class="checklist-edit" id="checklistEdit"></div>
+        <div class="cl-add">
+          <input type="text" id="newChecklistItem" placeholder="할 일 입력 후 Enter 또는 추가">
+          <button id="addChecklist">+ 추가</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>링크 (저장소·데모·문서)</label>
+        <div class="links-edit" id="linksEdit"></div>
+        <button id="addLink" style="align-self:flex-start; margin-top:4px;">+ 링크 추가</button>
+      </div>
+    </div>
+    <div class="foot">
+      <button class="danger" id="deleteProject">🗑 삭제</button>
+      <button class="primary" id="saveProject">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 체크리스트 항목 세부 진행상황 팝업 -->
+<div class="overlay detail" id="detailOverlay">
+  <div class="modal" style="max-width:520px;">
+    <div class="head">
+      <h2 id="detailTitle">세부 진행상황</h2>
+      <button id="detailClose" style="padding:4px 10px;">✕</button>
+    </div>
+    <div class="body">
+      <div class="field">
+        <label>항목</label>
+        <input type="text" id="detailItemText" placeholder="항목명">
+      </div>
+      <div class="field">
+        <label>세부 진행상황 / 메모</label>
+        <textarea id="detailNote" rows="8" placeholder="이 항목의 진행 상황, 진행 내용, 블로커, 참고사항 등을 자세히 기록…"></textarea>
+      </div>
+    </div>
+    <div class="foot" style="justify-content:flex-end;">
+      <button class="primary" id="detailSave">적용</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ===== Supabase 공용 DB 설정 =====
+const SUPABASE_URL = "https://jwjjjeuvuxiygeyzmexu.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ampqZXV2dXhpeWdleXptZXh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNzczNTYsImV4cCI6MjA5Mjg1MzM1Nn0.8XQy8FcjeVdlWI6p3qbVbLWqq66X6srBqhWQvVsD1BM";
+const TABLE = "vibe_projects";
+const EDIT_KEY_LS = "vibe-edit-key";
+
+const STAGES = [
+  { key: "시작전", color: "var(--stage-none)" },
+  { key: "기획",   color: "var(--stage-plan)" },
+  { key: "개발중", color: "var(--stage-dev)"  },
+  { key: "테스트", color: "var(--stage-test)" },
+  { key: "배포완료", color: "var(--stage-done)" },
+];
+const stageColor = (k) => (STAGES.find(s => s.key === k) || STAGES[0]).color;
+
+// 그룹별 색상 (이름 기반으로 안정적으로 결정)
+const GROUP_PALETTE = ["#22d3ee","#f472b6","#fbbf24","#a78bfa","#34d399","#fb923c","#60a5fa","#f87171","#c084fc","#4ade80"];
+const FIXED_GROUP_COLORS = { "1차수":"#22d3ee", "2차수":"#f472b6", "3차수":"#fbbf24" };
+function groupColor(g) {
+  g = g || "미분류";
+  if (FIXED_GROUP_COLORS[g]) return FIXED_GROUP_COLORS[g];
+  let h = 0;
+  for (let i = 0; i < g.length; i++) h = (h * 31 + g.charCodeAt(i)) >>> 0;
+  return GROUP_PALETTE[h % GROUP_PALETTE.length];
+}
+const groupOf = (p) => (p.group && p.group.trim()) || "미분류";
+
+// 데이터에 존재하는 그룹 목록(차수 우선, 그 외 가나다순)
+function distinctGroups() {
+  const seen = [];
+  state.projects.forEach(p => { const g = groupOf(p); if (!seen.includes(g)) seen.push(g); });
+  return seen.sort((a, b) => {
+    const ra = a.match(/^(\d+)차수$/), rb = b.match(/^(\d+)차수$/);
+    if (ra && rb) return Number(ra[1]) - Number(rb[1]);
+    if (ra) return -1; if (rb) return 1;
+    return a.localeCompare(b, "ko");
+  });
+}
+
+// 체크리스트 기반 진행률(%) 계산
+function checklistProgress(list) {
+  const cl = list || [];
+  if (!cl.length) return 0;
+  return Math.round(cl.filter(i => i.done).length / cl.length * 100);
+}
+
+let state = { projects: [], syncedAt: null };
+let filter = { group: "all", stage: "all", q: "" };
+let editKey = localStorage.getItem(EDIT_KEY_LS) || "";
+const canEdit = () => !!editKey;
+
+/* ---------- Supabase REST 연동 ---------- */
+function restHeaders(write) {
+  const h = {
+    apikey: SUPABASE_KEY,
+    Authorization: "Bearer " + SUPABASE_KEY,
+    "Content-Type": "application/json",
+  };
+  if (write && editKey) h["x-edit-key"] = editKey;
+  return h;
+}
+
+// DB row(JSON) <-> 앱 프로젝트 객체 매핑 (group_name <-> group)
+function rowToProject(r) {
+  return {
+    id: r.id, group: r.group_name, name: r.name || "", description: r.description || "",
+    owner: r.owner || "", stage: r.stage || "시작전", progress: r.progress || 0,
+    checklist: Array.isArray(r.checklist) ? r.checklist : [],
+    links: Array.isArray(r.links) ? r.links : [],
+    sort_order: r.sort_order || 0,
+  };
+}
+function projectToRow(p) {
+  return {
+    id: p.id, group_name: p.group || "미분류", name: p.name || "", description: p.description || "",
+    owner: p.owner || "", stage: p.stage || "시작전", progress: p.progress || 0,
+    checklist: p.checklist || [], links: p.links || [], sort_order: p.sort_order || 0,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+async function fetchProjects() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?select=*&order=sort_order.asc,id.asc`, { headers: restHeaders(false) });
+  if (!res.ok) throw new Error("불러오기 실패 (HTTP " + res.status + ")");
+  return (await res.json()).map(rowToProject);
+}
+
+async function upsertProjectDb(p) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?on_conflict=id`, {
+    method: "POST",
+    headers: { ...restHeaders(true), Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify(projectToRow(p)),
+  });
+  if (res.status === 401 || res.status === 403) throw new Error("편집 권한이 없습니다. 편집 키를 확인하세요.");
+  if (!res.ok) throw new Error("저장 실패 (HTTP " + res.status + ")");
+}
+
+async function deleteProjectDb(id) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: { ...restHeaders(true), Prefer: "return=representation" },
+  });
+  if (!res.ok) throw new Error("삭제 실패 (HTTP " + res.status + ")");
+  const rows = await res.json();
+  if (!rows.length) throw new Error("편집 권한이 없거나 항목이 없습니다. 편집 키를 확인하세요.");
+}
+
+// DB에서 다시 불러와 화면 갱신
+async function reload() {
+  try {
+    state.projects = await fetchProjects();
+    state.syncedAt = new Date().toISOString();
+    hideBanner();
+    renderAll();
+  } catch (e) {
+    showBanner("error", "데이터를 불러오지 못했습니다: " + e.message + " (인터넷 연결을 확인하세요)");
+  }
+}
+
+function showBanner(type, msg) {
+  const b = document.getElementById("banner");
+  b.className = "banner " + type;
+  b.textContent = msg;
+  b.style.display = "block";
+}
+function hideBanner() { document.getElementById("banner").style.display = "none"; }
+
+/* ---------- 렌더: 요약 ---------- */
+function renderSummary() {
+  const ps = state.projects;
+  const avg = ps.length ? Math.round(ps.reduce((s, p) => s + (p.progress || 0), 0) / ps.length) : 0;
+  document.getElementById("avgProgress").innerHTML = `${avg}<small>%</small>`;
+  document.getElementById("avgBar").style.width = avg + "%";
+
+  // 단계별 개수
+  const counts = {};
+  STAGES.forEach(s => counts[s.key] = 0);
+  ps.forEach(p => { counts[p.stage] = (counts[p.stage] || 0) + 1; });
+  document.getElementById("stageCounts").innerHTML = STAGES.map(s => `
+    <div class="stage-row">
+      <span class="dot" style="background:${s.color}"></span>
+      <span class="label">${s.key}</span>
+      <span class="cnt">${counts[s.key] || 0}</span>
+    </div>`).join("");
+
+  // 그룹별 진행률
+  document.getElementById("groupRows").innerHTML = distinctGroups().map(g => {
+    const sub = ps.filter(p => groupOf(p) === g);
+    const a = sub.length ? Math.round(sub.reduce((s, p) => s + (p.progress || 0), 0) / sub.length) : 0;
+    return `
+      <div class="cohort-row">
+        <div class="top"><b><span class="dot" style="background:${groupColor(g)}; display:inline-block; vertical-align:middle; margin-right:6px;"></span>${escapeHtml(g)} <span style="color:var(--muted); font-weight:500;">(${sub.length})</span></b><span class="pct">${a}%</span></div>
+        <div class="pbar"><span style="width:${a}%; background:${groupColor(g)}"></span></div>
+      </div>`;
+  }).join("");
+}
+
+/* ---------- 렌더: 그리드 ---------- */
+function renderGrid() {
+  const q = filter.q.trim().toLowerCase();
+  const list = state.projects.filter(p => {
+    if (filter.group !== "all" && groupOf(p) !== filter.group) return false;
+    if (filter.stage !== "all" && p.stage !== filter.stage) return false;
+    if (q) {
+      const clText = (p.checklist || []).map(i => i.text).join(" ");
+      const hay = `${p.name} ${p.description} ${p.owner} ${clText}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const grid = document.getElementById("grid");
+  const empty = document.getElementById("emptyState");
+  if (!list.length) { grid.innerHTML = ""; empty.style.display = "block"; return; }
+  empty.style.display = "none";
+
+  grid.innerHTML = list.map(p => {
+    const named = p.name && p.name.trim();
+    const title = named ? escapeHtml(p.name) : `(빈 슬롯 · ${p.id})`;
+    const linksHtml = (p.links || []).filter(l => l.url).map(l =>
+      `<a href="${escapeAttr(l.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escapeHtml(l.label || "링크")}</a>`
+    ).join("");
+    const cl = p.checklist || [];
+    const doneN = cl.filter(i => i.done).length;
+    let clHtml;
+    if (!cl.length) {
+      clHtml = `<div class="next empty">체크리스트 없음</div>`;
+    } else {
+      const nextItem = cl.find(i => !i.done);
+      const line = nextItem ? "▶ " + escapeHtml(nextItem.text) : "✅ 전부 완료";
+      clHtml = `<div class="next">☑ ${doneN}/${cl.length} 완료 · ${line}</div>`;
+    }
+    return `
+      <div class="pcard" data-id="${p.id}" style="border-left:4px solid ${groupColor(groupOf(p))}">
+        <div class="row1">
+          <span class="badge cohort" style="background:${groupColor(groupOf(p))}; color:#0f172a; border:none;">${escapeHtml(groupOf(p))}</span>
+          <span class="badge stage" style="background:${stageColor(p.stage)}">${p.stage}</span>
+        </div>
+        <h4 class="${named ? "" : "empty"}">${title}</h4>
+        <div class="desc">${p.description ? escapeHtml(p.description) : "&nbsp;"}</div>
+        <div class="meta">
+          <span>${p.owner ? "👤 " + escapeHtml(p.owner) : "담당자 미정"}</span>
+          <span class="pct">${p.progress || 0}%</span>
+        </div>
+        <div class="pbar"><span style="width:${p.progress || 0}%; background:${stageColor(p.stage)}"></span></div>
+        ${clHtml}
+        ${linksHtml ? `<div class="links">${linksHtml}</div>` : ""}
+      </div>`;
+  }).join("");
+
+  grid.querySelectorAll(".pcard").forEach(el =>
+    el.addEventListener("click", () => openEditor(el.dataset.id)));
+}
+
+function renderSavedAt() {
+  const el = document.getElementById("savedAt");
+  if (!state.syncedAt) { el.textContent = ""; return; }
+  const d = new Date(state.syncedAt);
+  const pad = n => String(n).padStart(2, "0");
+  el.textContent = `동기화 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function renderFilters() {
+  const box = document.getElementById("groupFilter");
+  const groups = distinctGroups();
+  if (filter.group !== "all" && !groups.includes(filter.group)) filter.group = "all";
+  const btns = [`<button data-g="all" class="${filter.group === "all" ? "active" : ""}">전체</button>`];
+  groups.forEach(g => {
+    btns.push(`<button data-g="${escapeAttr(g)}" class="${filter.group === g ? "active" : ""}"><span class="dot" style="background:${groupColor(g)}; display:inline-block; vertical-align:middle; margin-right:5px;"></span>${escapeHtml(g)}</button>`);
+  });
+  box.innerHTML = btns.join("");
+  box.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+    filter.group = b.dataset.g;
+    renderFilters();
+    renderGrid();
+  }));
+}
+
+function renderAll() { renderSummary(); renderFilters(); renderGrid(); renderSavedAt(); }
+
+/* ---------- 편집 모달 ---------- */
+function openEditor(id) {
+  const p = state.projects.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById("f_id").value = p.id;
+  document.getElementById("modalTitle").textContent = (canEdit() ? "프로젝트 편집 · " : "프로젝트 보기 · ") + p.id;
+  populateGroupSuggest();
+  document.getElementById("f_group").value = p.group || "";
+  document.getElementById("f_owner").value = p.owner || "";
+  document.getElementById("f_name").value = p.name || "";
+  document.getElementById("f_desc").value = p.description || "";
+  document.getElementById("f_stage").value = p.stage;
+  renderChecklistEdit(p.checklist || []);
+  renderLinksEdit(p.links || []);
+  document.getElementById("newChecklistItem").value = "";
+  setEditorReadOnly(!canEdit());
+  document.getElementById("overlay").classList.add("open");
+}
+
+function setEditorReadOnly(ro) {
+  const modal = document.querySelector("#overlay .modal");
+  modal.classList.toggle("readonly", ro);
+  modal.querySelectorAll("input, select, textarea").forEach(el => { el.disabled = ro; });
+  // 항목 이름 버튼은 읽기전용에서도 클릭 가능(세부 내용 보기용)
+  modal.querySelectorAll(".cl-text-btn").forEach(b => { b.disabled = false; });
+}
+
+function closeEditor() { document.getElementById("overlay").classList.remove("open"); }
+
+function renderLinksEdit(links) {
+  const box = document.getElementById("linksEdit");
+  box.innerHTML = "";
+  (links.length ? links : []).forEach(l => addLinkRow(l.label, l.url));
+}
+
+function addLinkRow(label = "", url = "") {
+  const box = document.getElementById("linksEdit");
+  const row = document.createElement("div");
+  row.className = "link-row";
+  row.innerHTML = `
+    <input type="text" class="lbl" placeholder="라벨" value="${escapeAttr(label)}">
+    <input type="url" class="url" placeholder="https://…" value="${escapeAttr(url)}">
+    <button type="button" class="danger">✕</button>`;
+  row.querySelector("button").addEventListener("click", () => row.remove());
+  box.appendChild(row);
+}
+
+function collectLinks() {
+  const rows = document.querySelectorAll("#linksEdit .link-row");
+  const out = [];
+  rows.forEach(r => {
+    const label = r.querySelector(".lbl").value.trim();
+    const url = r.querySelector(".url").value.trim();
+    if (url) out.push({ label: label || "링크", url });
+  });
+  return out;
+}
+
+/* ---------- 체크리스트 편집 ---------- */
+function renderChecklistEdit(items) {
+  document.getElementById("checklistEdit").innerHTML = "";
+  (items || []).forEach(it => addChecklistRow(it.text, it.done, it.note));
+  updateModalProgress();
+}
+
+function addChecklistRow(text = "", done = false, note = "") {
+  const box = document.getElementById("checklistEdit");
+  const row = document.createElement("div");
+  row.className = "cl-row";
+  row._text = text || "";
+  row._note = note || "";
+  row.innerHTML = `
+    <input type="checkbox" ${done ? "checked" : ""}>
+    <button type="button" class="cl-text-btn${done ? " done" : ""}${note ? " has-note" : ""}" title="클릭하여 세부 진행상황 보기/편집">
+      <span class="t"></span>
+    </button>
+    <button type="button" class="danger del-btn" title="삭제">✕</button>`;
+  const cb = row.querySelector("input[type=checkbox]");
+  const btn = row.querySelector(".cl-text-btn");
+  btn.querySelector(".t").textContent = row._text || "(이름 없음)";
+  cb.addEventListener("change", () => { btn.classList.toggle("done", cb.checked); updateModalProgress(); });
+  row.querySelector(".del-btn").addEventListener("click", () => { row.remove(); updateModalProgress(); });
+  btn.addEventListener("click", () => openDetailPopup(row));
+  box.appendChild(row);
+}
+
+function addNewChecklistItem() {
+  const inp = document.getElementById("newChecklistItem");
+  const v = inp.value.trim();
+  if (!v) return;
+  addChecklistRow(v, false);
+  inp.value = "";
+  inp.focus();
+  updateModalProgress();
+}
+
+function collectChecklist() {
+  const out = [];
+  document.querySelectorAll("#checklistEdit .cl-row").forEach(r => {
+    const text = (r._text || "").trim();
+    const done = r.querySelector("input[type=checkbox]").checked;
+    if (text) out.push({ text, done, note: r._note || "" });
+  });
+  return out;
+}
+
+function updateModalProgress() {
+  const pct = checklistProgress(collectChecklist());
+  document.getElementById("f_progress_bar").style.width = pct + "%";
+  document.getElementById("f_progress_val").textContent = pct + "%";
+}
+
+/* ---------- 체크리스트 항목 세부 진행상황 팝업 ---------- */
+let detailRow = null;
+function openDetailPopup(row) {
+  detailRow = row;
+  const title = (row._text || "").trim() || "(이름 없는 항목)";
+  document.getElementById("detailTitle").textContent = `세부 진행상황 · ${title}`;
+  document.getElementById("detailItemText").value = row._text || "";
+  document.getElementById("detailNote").value = row._note || "";
+  const ro = !canEdit();
+  document.getElementById("detailItemText").disabled = ro;
+  document.getElementById("detailNote").disabled = ro;
+  document.getElementById("detailSave").style.display = ro ? "none" : "";
+  document.getElementById("detailOverlay").classList.add("open");
+  if (!ro) document.getElementById("detailNote").focus();
+}
+function closeDetailPopup() {
+  document.getElementById("detailOverlay").classList.remove("open");
+  detailRow = null;
+}
+function saveDetailPopup() {
+  if (!detailRow) return;
+  detailRow._text = document.getElementById("detailItemText").value.trim();
+  detailRow._note = document.getElementById("detailNote").value.trim();
+  const btn = detailRow.querySelector(".cl-text-btn");
+  btn.querySelector(".t").textContent = detailRow._text || "(이름 없음)";
+  btn.classList.toggle("has-note", !!detailRow._note);
+  closeDetailPopup();
+  updateModalProgress();
+}
+
+async function saveProjectFromForm() {
+  if (!canEdit()) return;
+  const id = document.getElementById("f_id").value;
+  const p = state.projects.find(x => x.id === id);
+  if (!p) return;
+  // 폼 값 수집
+  const draft = {
+    ...p,
+    group: document.getElementById("f_group").value.trim() || "미분류",
+    owner: document.getElementById("f_owner").value.trim(),
+    name: document.getElementById("f_name").value.trim(),
+    description: document.getElementById("f_desc").value.trim(),
+    stage: document.getElementById("f_stage").value,
+    checklist: collectChecklist(),
+    links: collectLinks(),
+  };
+  draft.progress = checklistProgress(draft.checklist);
+  const btn = document.getElementById("saveProject");
+  btn.disabled = true; btn.textContent = "저장 중…";
+  try {
+    await upsertProjectDb(draft);
+    Object.assign(p, draft);           // 로컬 반영
+    renderAll();
+    closeEditor();
+  } catch (e) {
+    alert("저장 실패: " + e.message);
+    reload();                          // DB와 재동기화
+  } finally {
+    btn.disabled = false; btn.textContent = "저장";
+  }
+}
+
+/* ---------- 프로젝트 추가 / 삭제 ---------- */
+function newId() {
+  return "p-" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e6).toString(36);
+}
+
+async function addProject() {
+  if (!canEdit()) { alert("편집 모드에서만 추가할 수 있습니다."); return; }
+  const g = filter.group !== "all" ? filter.group : "신규";
+  const maxOrder = state.projects.reduce((m, p) => Math.max(m, p.sort_order || 0), 0);
+  const p = { id: newId(), group: g, name: "", description: "", owner: "", stage: "시작전", progress: 0, checklist: [], links: [], sort_order: maxOrder + 1 };
+  try {
+    await upsertProjectDb(p);
+    state.projects.push(p);
+    renderAll();
+    openEditor(p.id);
+  } catch (e) {
+    alert("추가 실패: " + e.message);
+  }
+}
+
+function populateGroupSuggest() {
+  const sug = Array.from(new Set([...distinctGroups(), "신규", "유지보수", "실험"]));
+  document.getElementById("groupSuggest").innerHTML = sug.map(g => `<option value="${escapeAttr(g)}">`).join("");
+}
+
+async function deleteProject() {
+  if (!canEdit()) return;
+  const id = document.getElementById("f_id").value;
+  const p = state.projects.find(x => x.id === id);
+  const label = p && p.name ? `"${p.name}"` : "이 프로젝트";
+  if (!confirm(`${label}를 완전히 삭제할까요?\n되돌릴 수 없습니다.`)) return;
+  try {
+    await deleteProjectDb(id);
+    state.projects = state.projects.filter(x => x.id !== id);
+    renderAll();
+    closeEditor();
+  } catch (e) {
+    alert("삭제 실패: " + e.message);
+  }
+}
+
+/* ---------- 백업 / 복원 ---------- */
+function exportJSON() {
+  const blob = new Blob([JSON.stringify({ version: 2, exportedAt: new Date().toISOString(), projects: state.projects }, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const d = new Date();
+  const pad = n => String(n).padStart(2, "0");
+  a.href = url;
+  a.download = `vibe-dashboard-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importJSON(file) {
+  if (!canEdit()) { alert("복원은 편집 모드에서만 가능합니다."); return; }
+  const reader = new FileReader();
+  reader.onload = async () => {
+    let parsed;
+    try {
+      parsed = JSON.parse(reader.result);
+      if (!parsed || !Array.isArray(parsed.projects)) throw new Error("형식 오류");
+    } catch (e) {
+      alert("복원 실패: 올바른 JSON 백업 파일이 아닙니다.");
+      return;
+    }
+    if (!confirm(`백업 파일의 ${parsed.projects.length}개 프로젝트를 DB에 덮어씁니다.\n계속할까요?`)) return;
+    showBanner("info", "복원 중…");
+    let ok = 0, fail = 0;
+    for (const p of parsed.projects) {
+      try { await upsertProjectDb({ ...p, group: p.group || p.group_name || "미분류" }); ok++; }
+      catch (e) { fail++; }
+    }
+    await reload();
+    alert(`복원 완료: 성공 ${ok}건` + (fail ? `, 실패 ${fail}건` : ""));
+  };
+  reader.readAsText(file);
+}
+
+/* ---------- 편집 모드 ---------- */
+function applyModeUI() {
+  const badge = document.getElementById("modeBadge");
+  const btn = document.getElementById("btnEditMode");
+  const add = document.getElementById("btnAddProject");
+  if (canEdit()) {
+    badge.textContent = "편집 모드 ✏️"; badge.classList.add("editing");
+    btn.textContent = "🔓 편집 종료";
+    add.style.display = "";
+  } else {
+    badge.textContent = "읽기 전용"; badge.classList.remove("editing");
+    btn.textContent = "🔒 편집 모드";
+    add.style.display = "none";
+  }
+}
+
+async function toggleEditMode() {
+  if (canEdit()) {
+    editKey = "";
+    localStorage.removeItem(EDIT_KEY_LS);
+    applyModeUI();
+    return;
+  }
+  const key = prompt("편집 키를 입력하세요 (편집 권한이 있는 사람만):");
+  if (!key) return;
+  editKey = key.trim();
+  // 편집 키 검증: 첫 프로젝트에 updated_at만 갱신해보고 권한 확인
+  try {
+    const sample = state.projects[0];
+    if (!sample) throw new Error("데이터 없음");
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(sample.id)}`, {
+      method: "PATCH",
+      headers: { ...restHeaders(true), Prefer: "return=representation" },
+      body: JSON.stringify({ updated_at: new Date().toISOString() }),
+    });
+    const rows = res.ok ? await res.json() : [];
+    if (!rows.length) throw new Error("권한 없음");
+    localStorage.setItem(EDIT_KEY_LS, editKey);
+    applyModeUI();
+    showBanner("info", "편집 모드가 활성화되었습니다.");
+    setTimeout(hideBanner, 2000);
+  } catch (e) {
+    editKey = "";
+    alert("편집 키가 올바르지 않습니다.");
+  }
+}
+
+/* ---------- 유틸 ---------- */
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s).replace(/'/g, "&#39;"); }
+
+/* ---------- 초기화/이벤트 ---------- */
+async function init() {
+  // 단계 select 옵션 채우기
+  const stageOpts = STAGES.map(s => `<option value="${s.key}">${s.key}</option>`).join("");
+  document.getElementById("f_stage").innerHTML = stageOpts;
+  document.getElementById("stageFilter").innerHTML =
+    `<option value="all">모든 단계</option>` + stageOpts;
+
+  // 그룹 필터는 renderFilters()에서 동적 생성/연결
+  document.getElementById("stageFilter").addEventListener("change", e => { filter.stage = e.target.value; renderGrid(); });
+  document.getElementById("searchInput").addEventListener("input", e => { filter.q = e.target.value; renderGrid(); });
+
+  // 체크리스트 추가
+  document.getElementById("addChecklist").addEventListener("click", addNewChecklistItem);
+  document.getElementById("newChecklistItem").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); addNewChecklistItem(); }
+  });
+
+  // 모달 버튼
+  document.getElementById("modalClose").addEventListener("click", closeEditor);
+  document.getElementById("overlay").addEventListener("click", e => { if (e.target.id === "overlay") closeEditor(); });
+  document.getElementById("saveProject").addEventListener("click", saveProjectFromForm);
+  document.getElementById("deleteProject").addEventListener("click", deleteProject);
+  document.getElementById("btnAddProject").addEventListener("click", addProject);
+  document.getElementById("addLink").addEventListener("click", () => addLinkRow());
+
+  // 세부 진행상황 팝업
+  document.getElementById("detailClose").addEventListener("click", closeDetailPopup);
+  document.getElementById("detailSave").addEventListener("click", saveDetailPopup);
+  document.getElementById("detailOverlay").addEventListener("click", e => { if (e.target.id === "detailOverlay") closeDetailPopup(); });
+
+  // 툴바
+  document.getElementById("btnEditMode").addEventListener("click", toggleEditMode);
+  document.getElementById("btnRefresh").addEventListener("click", reload);
+  document.getElementById("btnExport").addEventListener("click", exportJSON);
+  document.getElementById("btnImport").addEventListener("click", () => document.getElementById("fileInput").click());
+  document.getElementById("fileInput").addEventListener("change", e => { if (e.target.files[0]) importJSON(e.target.files[0]); e.target.value = ""; });
+
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape") return;
+    if (document.getElementById("detailOverlay").classList.contains("open")) closeDetailPopup();
+    else closeEditor();
+  });
+
+  applyModeUI();
+  await reload();
+
+  // 20초마다 자동 동기화 (편집 중이 아닐 때만)
+  setInterval(() => {
+    const editingOpen = document.getElementById("overlay").classList.contains("open")
+      || document.getElementById("detailOverlay").classList.contains("open");
+    if (!editingOpen) reload();
+  }, 20000);
+}
+
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
