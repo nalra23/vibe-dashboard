@@ -115,6 +115,12 @@
   }
   .pcard:hover { transform: translateY(-2px); border-color: var(--accent); }
   .pcard .row1 { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }
+  .star-btn { margin-left: auto; background: none; border: none; cursor: pointer; font-size: 18px; line-height: 1; padding: 0 2px; color: #fbbf24; }
+  .star-btn.off { color: #475569; }
+  .star-btn.off:hover { color: #fbbf24; }
+  .starfilter.active { background: #422006; color: #fbbf24; border-color: #a16207; }
+  .star-toggle { display: flex !important; align-items: center; gap: 8px; cursor: pointer; color: var(--text) !important; font-size: 14px; font-weight: 500; }
+  .star-toggle input { width: 17px; height: 17px; accent-color: #fbbf24; }
   .badge { font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: 700; white-space: nowrap; }
   .badge.cohort { background: #1e293b; border: 1px solid var(--border); color: var(--muted); }
   .badge.stage { color: #fff; }
@@ -225,6 +231,7 @@
       <option value="all">모든 단계</option>
     </select>
     <input type="text" class="search" id="searchInput" placeholder="프로젝트명·설명 검색…">
+    <button class="starfilter" id="btnStarFilter">⭐ 우수</button>
     <button class="primary" id="btnAddProject">+ 프로젝트 추가</button>
   </div>
 
@@ -261,6 +268,9 @@
       <div class="field">
         <label>한 줄 설명</label>
         <input type="text" id="f_desc" placeholder="이 프로젝트는 무엇인가요?">
+      </div>
+      <div class="field">
+        <label class="star-toggle"><input type="checkbox" id="f_starred"> ⭐ 우수 아이디어로 표시</label>
       </div>
       <div class="two">
         <div class="field">
@@ -369,7 +379,7 @@ function checklistProgress(list) {
 }
 
 let state = { projects: [], syncedAt: null };
-let filter = { group: "all", stage: "all", q: "" };
+let filter = { group: "all", stage: "all", q: "", starredOnly: false };
 let editKey = localStorage.getItem(EDIT_KEY_LS) || "";
 const canEdit = () => !!editKey;
 
@@ -392,6 +402,7 @@ function rowToProject(r) {
     checklist: Array.isArray(r.checklist) ? r.checklist : [],
     links: Array.isArray(r.links) ? r.links : [],
     sort_order: r.sort_order || 0,
+    starred: !!r.starred,
   };
 }
 function projectToRow(p) {
@@ -399,6 +410,7 @@ function projectToRow(p) {
     id: p.id, group_name: p.group || "미분류", name: p.name || "", description: p.description || "",
     owner: p.owner || "", stage: p.stage || "시작전", progress: p.progress || 0,
     checklist: p.checklist || [], links: p.links || [], sort_order: p.sort_order || 0,
+    starred: !!p.starred,
     updated_at: new Date().toISOString(),
   };
 }
@@ -481,8 +493,17 @@ function renderSummary() {
 
 /* ---------- 렌더: 그리드 ---------- */
 function renderGrid() {
+  // 우수만 필터 버튼 라벨·상태
+  const starCount = state.projects.filter(p => p.starred).length;
+  const sb = document.getElementById("btnStarFilter");
+  if (sb) {
+    sb.textContent = `⭐ 우수${starCount ? ` (${starCount})` : ""}`;
+    sb.classList.toggle("active", filter.starredOnly);
+  }
+
   const q = filter.q.trim().toLowerCase();
   const list = state.projects.filter(p => {
+    if (filter.starredOnly && !p.starred) return false;
     if (filter.group !== "all" && groupOf(p) !== filter.group) return false;
     if (filter.stage !== "all" && p.stage !== filter.stage) return false;
     if (q) {
@@ -514,11 +535,18 @@ function renderGrid() {
       const line = nextItem ? "▶ " + escapeHtml(nextItem.text) : "✅ 전부 완료";
       clHtml = `<div class="next">☑ ${doneN}/${cl.length} 완료 · ${line}</div>`;
     }
+    let starHtml = "";
+    if (canEdit()) {
+      starHtml = `<button class="star-btn ${p.starred ? "" : "off"}" data-star="${p.id}" title="우수 아이디어 표시/해제">${p.starred ? "★" : "☆"}</button>`;
+    } else if (p.starred) {
+      starHtml = `<span class="star-btn" style="cursor:default" title="우수 아이디어">★</span>`;
+    }
     return `
       <div class="pcard" data-id="${p.id}" style="border-left:4px solid ${groupColor(groupOf(p))}">
         <div class="row1">
           <span class="badge cohort" style="background:${groupColor(groupOf(p))}; color:#0f172a; border:none;">${escapeHtml(groupOf(p))}</span>
           <span class="badge stage" style="background:${stageColor(p.stage)}">${p.stage}</span>
+          ${starHtml}
         </div>
         <h4 class="${named ? "" : "empty"}">${title}</h4>
         <div class="desc">${p.description ? escapeHtml(p.description) : "&nbsp;"}</div>
@@ -534,6 +562,23 @@ function renderGrid() {
 
   grid.querySelectorAll(".pcard").forEach(el =>
     el.addEventListener("click", () => openEditor(el.dataset.id)));
+  grid.querySelectorAll(".star-btn[data-star]").forEach(b =>
+    b.addEventListener("click", e => { e.stopPropagation(); toggleStar(b.dataset.star); }));
+}
+
+async function toggleStar(id) {
+  if (!canEdit()) return;
+  const p = state.projects.find(x => x.id === id);
+  if (!p) return;
+  const draft = { ...p, starred: !p.starred };
+  try {
+    await upsertProjectDb(draft);
+    p.starred = draft.starred;
+    renderGrid();
+  } catch (e) {
+    alert("변경 실패: " + e.message);
+    reload();
+  }
 }
 
 function renderSavedAt() {
@@ -573,6 +618,7 @@ function openEditor(id) {
   document.getElementById("f_owner").value = p.owner || "";
   document.getElementById("f_name").value = p.name || "";
   document.getElementById("f_desc").value = p.description || "";
+  document.getElementById("f_starred").checked = !!p.starred;
   document.getElementById("f_stage").value = p.stage;
   renderChecklistEdit(p.checklist || []);
   renderLinksEdit(p.links || []);
@@ -717,6 +763,7 @@ async function saveProjectFromForm() {
     name: document.getElementById("f_name").value.trim(),
     description: document.getElementById("f_desc").value.trim(),
     stage: document.getElementById("f_stage").value,
+    starred: document.getElementById("f_starred").checked,
     checklist: collectChecklist(),
     links: collectLinks(),
   };
@@ -745,7 +792,7 @@ async function addProject() {
   if (!canEdit()) { alert("편집 모드에서만 추가할 수 있습니다."); return; }
   const g = filter.group !== "all" ? filter.group : "신규";
   const maxOrder = state.projects.reduce((m, p) => Math.max(m, p.sort_order || 0), 0);
-  const p = { id: newId(), group: g, name: "", description: "", owner: "", stage: "시작전", progress: 0, checklist: [], links: [], sort_order: maxOrder + 1 };
+  const p = { id: newId(), group: g, name: "", description: "", owner: "", stage: "시작전", progress: 0, checklist: [], links: [], sort_order: maxOrder + 1, starred: false };
   try {
     await upsertProjectDb(p);
     state.projects.push(p);
@@ -879,6 +926,7 @@ async function init() {
   // 그룹 필터는 renderFilters()에서 동적 생성/연결
   document.getElementById("stageFilter").addEventListener("change", e => { filter.stage = e.target.value; renderGrid(); });
   document.getElementById("searchInput").addEventListener("input", e => { filter.q = e.target.value; renderGrid(); });
+  document.getElementById("btnStarFilter").addEventListener("click", () => { filter.starredOnly = !filter.starredOnly; renderGrid(); });
 
   // 체크리스트 추가
   document.getElementById("addChecklist").addEventListener("click", addNewChecklistItem);
