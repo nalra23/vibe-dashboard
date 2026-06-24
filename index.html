@@ -52,6 +52,8 @@
   .modal.readonly #addLink,
   .modal.readonly .cl-row .del-btn,
   .modal.readonly .link-row button { display: none; }
+  .ro-hint { display: none; }
+  .modal.readonly .ro-hint { display: block; background: #1e293b; border: 1px solid var(--border); color: #cbd5e1; font-size: 13px; padding: 10px 12px; border-radius: 8px; margin-bottom: 4px; }
   .modal.readonly input:disabled,
   .modal.readonly select:disabled,
   .modal.readonly textarea:disabled { opacity: 1; -webkit-text-fill-color: var(--text); color: var(--text); }
@@ -240,6 +242,7 @@
     </div>
     <div class="body">
       <input type="hidden" id="f_id">
+      <div class="ro-hint">🔒 읽기 전용입니다. 편집하려면 우측 상단의 <b>‘🔒 편집 모드’</b> 버튼을 켜고 편집 키를 입력하세요.</div>
       <div class="two">
         <div class="field">
           <label>그룹</label>
