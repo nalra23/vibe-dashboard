@@ -936,6 +936,17 @@ async function init() {
   document.getElementById("searchInput").addEventListener("input", e => { filter.q = e.target.value; renderGrid(); });
   document.getElementById("btnStarFilter").addEventListener("click", () => { filter.starredOnly = !filter.starredOnly; renderGrid(); });
 
+  // Enter로 다음 입력칸 이동 (그룹→담당자→프로젝트명→한 줄 설명→체크리스트)
+  const navOrder = ["f_group", "f_owner", "f_name", "f_desc"];
+  navOrder.forEach((id, i) => {
+    document.getElementById(id).addEventListener("keydown", e => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      const next = document.getElementById(navOrder[i + 1] || "newChecklistItem");
+      if (next) next.focus();
+    });
+  });
+
   // 체크리스트 추가
   document.getElementById("addChecklist").addEventListener("click", addNewChecklistItem);
   document.getElementById("newChecklistItem").addEventListener("keydown", e => {
