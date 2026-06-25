@@ -303,6 +303,10 @@
         <div class="links-edit" id="linksEdit"></div>
         <button id="addLink" style="align-self:flex-start; margin-top:4px;">+ 링크 추가</button>
       </div>
+      <div class="field">
+        <label>인터뷰 메모 (교육 후 고도화가 어려웠던 이유)</label>
+        <textarea id="f_interview" rows="6" placeholder="담당자 인터뷰 내용을 기록하세요. 예) 고도화가 진행되기 어려웠던 이유, 막혔던 지점, 필요한 지원 등…"></textarea>
+      </div>
     </div>
     <div class="foot">
       <button class="danger" id="deleteProject">🗑 삭제</button>
@@ -406,6 +410,7 @@ function rowToProject(r) {
     owner: r.owner || "", stage: r.stage || "시작전", progress: r.progress || 0,
     checklist: Array.isArray(r.checklist) ? r.checklist : [],
     links: Array.isArray(r.links) ? r.links : [],
+    interview: r.interview || "",
     sort_order: r.sort_order || 0,
     rating: typeof r.rating === "number" ? r.rating : (r.starred ? 1 : 0),
   };
@@ -414,7 +419,7 @@ function projectToRow(p) {
   return {
     id: p.id, group_name: p.group || "미분류", name: p.name || "", description: p.description || "",
     owner: p.owner || "", stage: p.stage || "시작전", progress: p.progress || 0,
-    checklist: p.checklist || [], links: p.links || [], sort_order: p.sort_order || 0,
+    checklist: p.checklist || [], links: p.links || [], interview: p.interview || "", sort_order: p.sort_order || 0,
     rating: p.rating || 0, starred: (p.rating || 0) > 0,
     updated_at: new Date().toISOString(),
   };
@@ -630,6 +635,7 @@ function openEditor(id) {
   document.getElementById("f_stage").value = p.stage;
   renderChecklistEdit(p.checklist || []);
   renderLinksEdit(p.links || []);
+  document.getElementById("f_interview").value = p.interview || "";
   document.getElementById("newChecklistItem").value = "";
   setEditorReadOnly(!canEdit());
   document.getElementById("overlay").classList.add("open");
@@ -774,6 +780,7 @@ async function saveProjectFromForm() {
     rating: Number(document.getElementById("f_rating").value),
     checklist: collectChecklist(),
     links: collectLinks(),
+    interview: document.getElementById("f_interview").value.trim(),
   };
   draft.progress = checklistProgress(draft.checklist);
   const btn = document.getElementById("saveProject");
@@ -800,7 +807,7 @@ async function addProject() {
   if (!canEdit()) { alert("편집 모드에서만 추가할 수 있습니다."); return; }
   const g = filter.group !== "all" ? filter.group : "신규";
   const maxOrder = state.projects.reduce((m, p) => Math.max(m, p.sort_order || 0), 0);
-  const p = { id: newId(), group: g, name: "", description: "", owner: "", stage: "시작전", progress: 0, checklist: [], links: [], sort_order: maxOrder + 1, rating: 0 };
+  const p = { id: newId(), group: g, name: "", description: "", owner: "", stage: "시작전", progress: 0, checklist: [], links: [], interview: "", sort_order: maxOrder + 1, rating: 0 };
   try {
     await upsertProjectDb(p);
     state.projects.push(p);
