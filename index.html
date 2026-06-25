@@ -272,7 +272,7 @@
       <div class="field">
         <label>등급</label>
         <select id="f_rating">
-          <option value="0">— 없음</option>
+          <option value="0">일반</option>
           <option value="1">⭐ 우수</option>
           <option value="2">🏆 최우수</option>
         </select>
@@ -544,7 +544,7 @@ function renderGrid() {
     const ratingIcon = p.rating === 2 ? "🏆" : p.rating === 1 ? "⭐" : "";
     let starHtml = "";
     if (canEdit()) {
-      starHtml = `<button class="star-btn ${p.rating ? "" : "off"}" data-star="${p.id}" title="등급 변경 (없음 → ⭐우수 → 🏆최우수)">${ratingIcon || "☆"}</button>`;
+      starHtml = `<button class="star-btn ${p.rating ? "" : "off"}" data-star="${p.id}" title="등급 변경 (일반 → ⭐우수 → 🏆최우수)">${ratingIcon || "☆"}</button>`;
     } else if (p.rating > 0) {
       starHtml = `<span class="star-btn" style="cursor:default" title="${p.rating === 2 ? "최우수" : "우수"}">${ratingIcon}</span>`;
     }
@@ -577,7 +577,7 @@ async function toggleStar(id) {
   if (!canEdit()) return;
   const p = state.projects.find(x => x.id === id);
   if (!p) return;
-  const next = ((p.rating || 0) + 1) % 3;   // 없음 → 우수 → 최우수 → 없음
+  const next = ((p.rating || 0) + 1) % 3;   // 일반 → 우수 → 최우수 → 일반
   const draft = { ...p, rating: next };
   try {
     await upsertProjectDb(draft);
